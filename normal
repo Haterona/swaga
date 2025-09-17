@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TSV Review Sentiment • Hugging Face</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #9ca3af;
+      --text: #e5e7eb;
+      --accent: #60a5fa;
+      --danger: #f87171;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+      background: radial-gradient(1200px 800px at 80% -10%, #1e293b 0%, var(--bg) 45%) fixed;
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 900px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+      backdrop-filter: blur(6px);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    header .logo {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: linear-gradient(135deg, #111827, #1f2937);
+      border: 1px solid var(--border);
+      display: grid; place-items: center;
+      color: var(--accent);
+    }
+    header h1 {
+      font-size: 1.25rem; margin: 0; letter-spacing: 0.2px;
+    }
+    header p { margin: 2px 0 0 0; color: var(--muted); font-size: 0.9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 860px) {
+      .grid { grid-template-columns: 1.1fr 0.9fr; }
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    label { font-size: 0.9rem; color: var(--muted); }
+    input[type="password"], input[type="text"] {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      outline: none;
+    }
+    .hint {
+      font-size: 0.85rem; color: var(--muted);
+    }
+    .row {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #1f2937, #0b1220);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.05s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    button:hover { border-color: #2b3647; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+    button:active { transform: translateY(1px); }
+    .ghost { background: transparent; }
+    .status {
+      display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.95rem;
+    }
+    .status .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 14px rgba(251,191,36,0.45);
+    }
+    .status.ready .dot { background: var(--ok); box-shadow: 0 0 14px rgba(52,211,153,0.45); }
+    .status.error .dot { background: var(--danger); box-shadow: 0 0 14px rgba(248,113,113,0.45); }
+    .review {
+      background: #0b1220;
+      border: 1px dashed #273249;
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 100px;
+      line-height: 1.5;
+      font-size: 1rem;
+      color: #e6edf6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .sentiment {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      min-height: 64px;
+    }
+    .sentiment i {
+      font-size: 2rem;
+    }
+    .sentiment .positive { color: var(--ok); }
+    .sentiment .negative { color: var(--danger); }
+    .sentiment .neutral { color: var(--warn); }
+    .monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .error {
+      color: var(--danger);
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.35);
+      padding: 10px 12px;
+      border-radius: 10px;
+      display: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .footer {
+      margin-top: 14px;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      flex-wrap: wrap;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .pill {
+      border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; background: #0b1220;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo"><i class="fa-solid fa-robot"></i></div>
+      <div>
+        <h1>Random Review Sentiment (TSV → Hugging Face)</h1>
+        <p>Parses <span class="monospace">reviews_test.tsv</span> with Papa Parse and analyzes via <span class="monospace">siebert/sentiment-roberta-large-english</span>.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Data & Token</h2>
+        <div class="field">
+          <label for="tokenInput">Hugging Face API Token (optional)</label>
+          <input id="tokenInput" type="password" autocomplete="off" placeholder="hf_xxx — optional for free, helps with rate limits" />
+          <div class="hint">Token is used only in your browser to set the <span class="monospace">Authorization</span> header.</div>
+        </div>
+
+        <div class="row" style="margin-top:8px; gap:12px;">
+          <button id="reloadBtn" class="ghost"><i class="fa-solid fa-rotate"></i> Reload TSV</button>
+          <div id="loadStatus" class="status"><span class="dot"></span><span>Loading TSV…</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Analyze</h2>
+        <div class="row" style="gap:12px; margin-bottom:10px;">
+          <button id="analyzeBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Random Review</button>
+          <span class="pill" id="countBadge">0 reviews loaded</span>
+        </div>
+        <div id="errorBox" class="error"></div>
+        <div class="field">
+          <label>Selected Review</label>
+          <div id="reviewDisplay" class="review" aria-live="polite"></div>
+        </div>
+        <div class="field">
+          <label>Sentiment</label>
+          <div class="sentiment">
+            <div id="sentimentIcon" aria-hidden="true"><i class="fa-regular fa-circle-question neutral"></i></div>
+            <div>
+              <div id="sentimentLabel" style="font-weight:700;">—</div>
+              <div id="sentimentScore" class="hint">Score: —</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer">
+      <div>Icons: Font Awesome • Parser: Papa Parse • API: Hugging Face Inference</div>
+      <div>
+        <a href="https://huggingface.co/siebert/sentiment-roberta-large-english" target="_blank" rel="noopener">Model Card</a> ·
+        <a href="https://api-inference.huggingface.co/docs/python/html/index.html" target="_blank" rel="noopener">Inference API Docs</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
