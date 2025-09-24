@@ -1,4 +1,16 @@
 // app.js
+// ВАЖНО (по ТЗ из промпта):
+// - Вся логика в этом файле (UI/стили/структура — только в index.html).
+// - Данные читаем ТОЛЬКО через Papa Parse (TSV, колонка 'text').
+// - Анализ — через Hugging Face Inference API, модель: siebert/sentiment-roberta-large-english.
+// - POST на https://api-inference.huggingface.co/models/siebert/sentiment-roberta-large-english
+//   c JSON: { "inputs": "<reviewText>" } и опциональным заголовком Authorization: Bearer <token>.
+// - Классификация строго по правилу промпта: 
+//   если label === 'POSITIVE' и score > 0.5 → positive;
+//   если label === 'NEGATIVE' и score > 0.5 → negative;
+//   иначе → neutral.
+// - Иконки: thumbs-up (positive), thumbs-down (negative), question mark (neutral).
+
 const STATE = {
   reviews: [],
   loaded: false,
@@ -20,6 +32,7 @@ const els = {
 };
 
 function setStatus(mode, text) {
+  // Отображение статуса загрузки TSV (ready/error) в UI.
   els.loadStatus.classList.remove('ready', 'error');
   if (mode) els.loadStatus.classList.add(mode);
   const label = els.loadStatus.querySelector('span:last-child');
@@ -27,6 +40,7 @@ function setStatus(mode, text) {
 }
 
 function showError(msg) {
+  // Единый вывод ошибок (сеть, API, парсинг).
   els.errorBox.textContent = msg;
   els.errorBox.style.display = 'block';
 }
@@ -37,33 +51,42 @@ function clearError() {
 }
 
 function updateCountBadge() {
+  // Плашка с количеством валидных отзывов из TSV.
   const n = STATE.reviews.length;
   els.countBadge.textContent = `${n} review${n === 1 ? '' : 's'} loaded`;
 }
 
 function chooseRandom(arr) {
+  // Случайный выбор отзыва для анализа по клику.
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function normalizeHfResponse(json) {
-  // Expected: [[{ label: 'POSITIVE'|'NEGATIVE', score: number }]]
-  // Sometimes API may return [{...}] directly.
+  // Ожидаемый по ТЗ формат ответа: [[{ label: 'POSITIVE'|'NEGATIVE', score: number }, ... ]]
+  // Берём первый (единственный по ТЗ) внутренний список и выбираем элемент с максимальным score.
+  // Далее применяем РОВНО правило из промпта (порог 0.5 для соответствующей метки).
   if (!json) return null;
+
   let candidates = null;
   if (Array.isArray(json) && Array.isArray(json[0])) {
+    // Соответствует формату из ТЗ: берём первую внутреннюю коллекцию.
     candidates = json[0];
   } else if (Array.isArray(json)) {
+    // Допустим минимальную «устойчивость» к вариациям ответа API (не меняя правило классификации).
     candidates = json;
   }
+
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
 
-  // Pick the highest score among POSITIVE/NEGATIVE
+  // Выбираем запись с максимальным score (если вернулось несколько меток).
   candidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const top = candidates[0];
   if (!top || typeof top.label !== 'string') return null;
 
   const label = top.label.toUpperCase();
   const score = typeof top.score === 'number' ? top.score : 0;
+
+  // Применяем строгое правило из промпта.
   let verdict = 'neutral';
   if (label === 'POSITIVE' && score > 0.5) verdict = 'positive';
   else if (label === 'NEGATIVE' && score > 0.5) verdict = 'negative';
@@ -73,6 +96,8 @@ function normalizeHfResponse(json) {
 }
 
 function renderSentiment(result) {
+  // Отображение результата: 
+  // positive → thumbs-up, negative → thumbs-down, neutral → question mark.
   const iconWrap = els.sentimentIcon;
   iconWrap.innerHTML = '';
   const i = document.createElement('i');
@@ -82,10 +107,10 @@ function renderSentiment(result) {
     els.sentimentLabel.textContent = 'Neutral (no result)';
     els.sentimentScore.textContent = 'Score: —';
   } else {
-    if (result.verdict === 'positive') {
+    if (result.verdict == 'positive') {
       i.className = 'fa-solid fa-thumbs-up positive';
       els.sentimentLabel.textContent = 'Positive';
-    } else if (result.verdict === 'negative') {
+    } else if (result.verdict == 'negative') {
       i.className = 'fa-solid fa-thumbs-down negative';
       els.sentimentLabel.textContent = 'Negative';
     } else {
@@ -99,6 +124,8 @@ function renderSentiment(result) {
 }
 
 async function loadTSV() {
+  // ЗАГРУЗКА ДАННЫХ СТРОГО ЧЕРЕЗ PAPA PARSE (по ТЗ).
+  // Файл: reviews_test.tsv (таб-разделитель, header: true, колонка 'text').
   setStatus('', 'Loading TSV…');
   clearError();
   STATE.reviews = [];
@@ -143,6 +170,11 @@ async function loadTSV() {
 }
 
 async function analyzeRandom() {
+  // Основной сценарий по клику:
+  // 1) выбрать случайный отзыв,
+  // 2) отобразить его в UI,
+  // 3) запросить Inference API с { "inputs": "<reviewText>" } и (если введён) Authorization,
+  // 4) интерпретировать ответ по правилу промпта и показать иконку/метку/скор.
   clearError();
   if (!STATE.loaded || STATE.reviews.length === 0) {
     showError('Data not loaded. Click "Reload TSV" and ensure reviews_test.tsv is present with a "text" column.');
@@ -156,14 +188,14 @@ async function analyzeRandom() {
   const endpoint = 'https://api-inference.huggingface.co/models/siebert/sentiment-roberta-large-english';
   const headers = { 'Content-Type': 'application/json' };
   const token = (els.token.value || '').trim();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) headers['Authorization'] = `Bearer ${token}`; // Токен опционален (для лимитов/квот).
 
   let resp;
   try {
     resp = await fetch(endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ inputs: text }),
+      body: JSON.stringify({ inputs: text }), // РОВНО как в ТЗ.
     });
   } catch (e) {
     showError(`Network error: ${e?.message || e}`);
@@ -172,6 +204,7 @@ async function analyzeRandom() {
 
   let data;
   if (!resp.ok) {
+    // Грациозная обработка ошибок/лимитов согласно ТЗ.
     let detail = '';
     try {
       const maybe = await resp.json();
@@ -201,6 +234,7 @@ async function analyzeRandom() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Автозагрузка TSV при старте и биндинг кнопок «Reload TSV» / «Analyze Random Review».
   await loadTSV();
   els.reloadBtn.addEventListener('click', loadTSV);
   els.analyzeBtn.addEventListener('click', analyzeRandom);
