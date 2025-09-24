@@ -1,9 +1,20 @@
 // app.js
-// UX-focused: keyboard-friendly, aria-live updates, and glass UI from index.html kept intact.
+// UX-focused version: keyboard-friendly, aria-live updates, and glass UI handled in index.html.
 
+/**
+ * Global state container:
+ * - reviews: parsed review texts from reviews_test.tsv
+ * - loaded: flag indicating TSV has been successfully parsed
+ */
 const STATE = { reviews: [], loaded: false };
+
+/** Shorthand for getElementById */
 const $ = (id) => document.getElementById(id);
 
+/**
+ * Cached DOM elements used throughout the app.
+ * These IDs must exist in index.html.
+ */
 const els = {
   token: $('tokenInput'),
   reloadBtn: $('reloadBtn'),
@@ -17,6 +28,12 @@ const els = {
   errorBox: $('errorBox'),
 };
 
+/**
+ * setStatus(mode, text)
+ * Updates the TSV loading status chip:
+ * - mode: '', 'ready', or 'error' (controls dot color via CSS classes)
+ * - text: human-readable status message
+ */
 function setStatus(mode, text) {
   els.loadStatus.classList.remove('ready', 'error');
   if (mode) els.loadStatus.classList.add(mode);
@@ -24,38 +41,66 @@ function setStatus(mode, text) {
   if (label) label.textContent = text;
 }
 
+/**
+ * showError(msg)
+ * Displays an error message block and focuses it for screen readers.
+ */
 function showError(msg) {
   els.errorBox.textContent = msg;
   els.errorBox.style.display = 'block';
-  // Move focus to error for screen readers
   els.errorBox.setAttribute('tabindex', '-1');
   els.errorBox.focus({ preventScroll: false });
 }
 
+/**
+ * clearError()
+ * Hides the error message block and removes temporary accessibility attributes.
+ */
 function clearError() {
   els.errorBox.textContent = '';
   els.errorBox.style.display = 'none';
   els.errorBox.removeAttribute('tabindex');
 }
 
+/**
+ * updateCountBadge()
+ * Shows the number of valid reviews loaded from the TSV file.
+ */
 function updateCountBadge() {
   const n = STATE.reviews.length;
   els.countBadge.textContent = `${n} review${n === 1 ? '' : 's'} loaded`;
 }
 
+/**
+ * chooseRandom(arr)
+ * Returns a random element from a non-empty array.
+ */
 function chooseRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/**
+ * normalizeHfResponse(json)
+ * Normalizes and interprets the Hugging Face Inference API response.
+ * Expected by spec: [[{ label: 'POSITIVE'|'NEGATIVE', score: number }, ...]]
+ * Picks the highest-scored candidate, then applies the strict rule:
+ * - POSITIVE && score > 0.5 -> 'positive'
+ * - NEGATIVE && score > 0.5 -> 'negative'
+ * - otherwise -> 'neutral'
+ * Returns { label, score, verdict } or null if the structure is unusable.
+ */
 function normalizeHfResponse(json) {
-  // Expected by spec: [[{ label: 'POSITIVE'|'NEGATIVE', score: number }, ...]]
   if (!json) return null;
   let candidates = null;
+
+  // Primary expected format: nested array
   if (Array.isArray(json) && Array.isArray(json[0])) {
     candidates = json[0];
   } else if (Array.isArray(json)) {
+    // Defensive handling for flat array responses while keeping the same rule
     candidates = json;
   }
+
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
 
   candidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
@@ -65,7 +110,6 @@ function normalizeHfResponse(json) {
   const label = top.label.toUpperCase();
   const score = typeof top.score === 'number' ? top.score : 0;
 
-  // Strict rule: POSITIVE && score>0.5 -> positive; NEGATIVE && score>0.5 -> negative; else neutral.
   let verdict = 'neutral';
   if (label === 'POSITIVE' && score > 0.5) verdict = 'positive';
   else if (label === 'NEGATIVE' && score > 0.5) verdict = 'negative';
@@ -73,6 +117,12 @@ function normalizeHfResponse(json) {
   return { label, score, verdict };
 }
 
+/**
+ * renderSentiment(result)
+ * Renders the sentiment icon and labels based on the classification result.
+ * - result: { label, score, verdict } or null
+ * Also briefly focuses the sentiment label to announce updates to screen readers.
+ */
 function renderSentiment(result) {
   const iconWrap = els.sentimentIcon;
   iconWrap.innerHTML = '';
@@ -98,12 +148,20 @@ function renderSentiment(result) {
 
   iconWrap.appendChild(i);
 
-  // Announce for SR and move focus
+  // Accessibility announcement for updated sentiment
   els.sentimentLabel.setAttribute('tabindex', '-1');
   els.sentimentLabel.focus({ preventScroll: true });
   setTimeout(() => els.sentimentLabel.removeAttribute('tabindex'), 200);
 }
 
+/**
+ * loadTSV()
+ * Loads and parses the reviews TSV file strictly via Papa Parse (as required).
+ * - File name: reviews_test.tsv
+ * - Assumes header row and 'text' column.
+ * Populates STATE.reviews and toggles STATE.loaded.
+ * Updates UI status and error region on success/failure.
+ */
 async function loadTSV() {
   setStatus('', 'Loading TSV…');
   clearError();
@@ -123,9 +181,11 @@ async function loadTSV() {
           const texts = rows
             .map(r => (r && typeof r.text === 'string') ? r.text.trim() : '')
             .filter(t => t.length > 0);
+
           STATE.reviews = texts;
           STATE.loaded = texts.length > 0;
           updateCountBadge();
+
           if (STATE.loaded) {
             setStatus('ready', 'TSV loaded');
             els.reloadBtn.setAttribute('aria-busy', 'false');
@@ -149,6 +209,15 @@ async function loadTSV() {
   });
 }
 
+/**
+ * analyzeRandom()
+ * Main action handler for "Analyze Random Review" button:
+ * 1) Picks a random review from STATE.reviews
+ * 2) Shows it in the UI
+ * 3) Sends POST request to Hugging Face Inference API with { inputs: text }
+ * 4) Normalizes response and renders sentiment (thumbs-up/down or question mark)
+ * Also handles and displays API/network errors in a user-friendly manner.
+ */
 async function analyzeRandom() {
   clearError();
   if (!STATE.loaded || STATE.reviews.length === 0) {
@@ -160,7 +229,7 @@ async function analyzeRandom() {
 
   const text = chooseRandom(STATE.reviews);
   els.reviewDisplay.textContent = text || '(Empty review)';
-  // Move focus to review for keyboard users
+  // Keyboard-friendly: move focus to the newly displayed review content
   els.reviewDisplay.focus({ preventScroll: false });
   renderSentiment(null);
 
@@ -215,6 +284,12 @@ async function analyzeRandom() {
   els.analyzeBtn.setAttribute('aria-busy', 'false');
 }
 
+/**
+ * DOMContentLoaded bootstrap
+ * - Preloads the TSV (calls loadTSV)
+ * - Wires up buttons (Reload TSV / Analyze)
+ * - Adds keyboard shortcut: Enter in token field triggers analyze
+ */
 document.addEventListener('DOMContentLoaded', async () => {
   els.reloadBtn.setAttribute('aria-busy', 'true');
   await loadTSV();
@@ -225,9 +300,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadTSV();
     els.reloadBtn.setAttribute('aria-busy', 'false');
   });
+
   els.analyzeBtn.addEventListener('click', analyzeRandom);
 
-  // Keyboard: Enter on token triggers analyze for convenience
   els.token.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') els.analyzeBtn.click();
   });
