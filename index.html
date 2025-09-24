@@ -8,172 +8,208 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <style>
     :root {
-      --bg: #0f172a;
-      --panel: #111827;
-      --muted: #9ca3af;
-      --text: #e5e7eb;
-      --accent: #60a5fa;
-      --danger: #f87171;
-      --ok: #34d399;
-      --warn: #fbbf24;
-      --border: #1f2937;
+      --bg: #1a0f16;          /* very dark plum */
+      --panel: #1e1520;       /* deep berry */
+      --muted: #f5c6da;       /* soft rose */
+      --text: #ffe9f2;        /* near-white pink */
+      --accent: #ff73b3;      /* vibrant pink */
+      --accent-2: #ffc2dd;    /* pastel pink */
+      --danger: #ff5a8c;      /* hot pink/red */
+      --ok: #7be3c5;          /* mint for positive contrast */
+      --warn: #ffd166;        /* warm peach for neutral */
+      --border: #442539;      /* wine border */
+      --chip: #2a1926;        /* chip background */
+      --input: #140b12;       /* input background */
+      --dash: #5a2b49;        /* dashed border */
+      --glow: rgba(255, 115, 179, 0.35);
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-      background: radial-gradient(1200px 800px at 80% -10%, #1e293b 0%, var(--bg) 45%) fixed;
       color: var(--text);
+      background:
+        radial-gradient(1200px 800px at 85% -10%, rgba(255,115,179,0.25) 0%, transparent 55%) fixed,
+        radial-gradient(900px 600px at -10% 120%, rgba(255,194,221,0.20) 0%, transparent 60%) fixed,
+        linear-gradient(180deg, #120a12 0%, var(--bg) 100%) fixed;
       display: grid;
       place-items: center;
       padding: 24px;
     }
     .app {
       width: 100%;
-      max-width: 900px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      max-width: 980px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
-      backdrop-filter: blur(6px);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow:
+        0 24px 80px rgba(255, 115, 179, 0.12),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(8px);
     }
     header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 14px;
+      margin-bottom: 18px;
     }
     header .logo {
-      width: 42px; height: 42px; border-radius: 10px;
-      background: linear-gradient(135deg, #111827, #1f2937);
+      width: 48px; height: 48px; border-radius: 14px;
+      background:
+        radial-gradient(60% 60% at 30% 30%, rgba(255,194,221,0.35), transparent),
+        linear-gradient(135deg, #2b1826, #1c0f19);
       border: 1px solid var(--border);
       display: grid; place-items: center;
       color: var(--accent);
+      box-shadow: 0 6px 18px var(--glow);
     }
     header h1 {
-      font-size: 1.25rem; margin: 0; letter-spacing: 0.2px;
+      font-size: 1.35rem; margin: 0; letter-spacing: 0.2px;
+      background: linear-gradient(90deg, var(--text), var(--accent-2));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-    header p { margin: 2px 0 0 0; color: var(--muted); font-size: 0.9rem; }
+    header p { margin: 4px 0 0 0; color: var(--muted); font-size: 0.95rem; }
     .grid {
       display: grid;
       grid-template-columns: 1fr;
       gap: 16px;
     }
-    @media (min-width: 860px) {
-      .grid { grid-template-columns: 1.1fr 0.9fr; }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 1.05fr 0.95fr; }
     }
     .panel {
-      background: var(--panel);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+        var(--panel);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 16px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
     }
     .panel h2 {
       margin: 0 0 12px 0;
-      font-size: 1rem;
-      color: var(--muted);
-      font-weight: 600;
-      letter-spacing: 0.3px;
+      font-size: 0.95rem;
+      color: var(--accent-2);
+      font-weight: 700;
+      letter-spacing: 0.25px;
       text-transform: uppercase;
     }
-    .field {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    label { font-size: 0.9rem; color: var(--muted); }
+    .field { display: grid; gap: 8px; margin-bottom: 12px; }
+    label { font-size: 0.92rem; color: var(--muted); }
     input[type="password"], input[type="text"] {
       width: 100%;
       padding: 12px 12px;
-      border-radius: 10px;
+      border-radius: 12px;
       border: 1px solid var(--border);
-      background: #0b1220;
+      background: var(--input);
       color: var(--text);
       outline: none;
+      transition: box-shadow .2s ease, border-color .2s ease;
     }
-    .hint {
-      font-size: 0.85rem; color: var(--muted);
+    input[type="password"]:focus, input[type="text"]:focus {
+      border-color: #7b2d59;
+      box-shadow: 0 0 0 4px rgba(255, 115, 179, 0.18);
     }
-    .row {
-      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    }
+    .hint { font-size: 0.86rem; color: var(--muted); }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     button {
       appearance: none;
       border: 1px solid var(--border);
-      background: linear-gradient(180deg, #1f2937, #0b1220);
+      background:
+        linear-gradient(180deg, #2a1825, #170c14);
       color: var(--text);
       padding: 12px 14px;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
-      font-weight: 600;
-      transition: transform 0.05s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      font-weight: 700;
+      transition: transform 0.05s ease, box-shadow 0.25s ease, border-color 0.2s ease, background 0.2s ease;
     }
-    button:hover { border-color: #2b3647; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+    button:hover {
+      border-color: #7b2d59;
+      box-shadow: 0 10px 26px var(--glow);
+      background: linear-gradient(180deg, #341a2b, #190d16);
+    }
     button:active { transform: translateY(1px); }
-    .ghost { background: transparent; }
+    .ghost {
+      background: transparent;
+      color: var(--accent-2);
+      border-color: #6c2b52;
+    }
+    .ghost:hover { background: rgba(255,115,179,0.06); }
     .status {
       display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.95rem;
+      padding: 6px 10px; border-radius: 999px; background: var(--chip); border: 1px solid var(--border);
     }
     .status .dot {
       width: 10px; height: 10px; border-radius: 50%;
       background: var(--warn);
-      box-shadow: 0 0 14px rgba(251,191,36,0.45);
+      box-shadow: 0 0 10px rgba(255,209,102,0.45);
     }
-    .status.ready .dot { background: var(--ok); box-shadow: 0 0 14px rgba(52,211,153,0.45); }
-    .status.error .dot { background: var(--danger); box-shadow: 0 0 14px rgba(248,113,113,0.45); }
+    .status.ready .dot { background: var(--ok); box-shadow: 0 0 12px rgba(123,227,197,0.5); }
+    .status.error .dot { background: var(--danger); box-shadow: 0 0 12px rgba(255,90,140,0.5); }
     .review {
-      background: #0b1220;
-      border: 1px dashed #273249;
-      border-radius: 12px;
+      background: var(--input);
+      border: 1px dashed var(--dash);
+      border-radius: 14px;
       padding: 14px;
-      min-height: 100px;
-      line-height: 1.5;
+      min-height: 110px;
+      line-height: 1.55;
       font-size: 1rem;
-      color: #e6edf6;
+      color: var(--text);
       white-space: pre-wrap;
       word-break: break-word;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
     .sentiment {
       display: grid;
       grid-template-columns: auto 1fr;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
       padding: 12px;
-      border-radius: 12px;
+      border-radius: 14px;
       border: 1px solid var(--border);
-      background: #0b1220;
-      min-height: 64px;
+      background:
+        radial-gradient(120px 80px at 0% 0%, rgba(255,115,179,0.08), transparent),
+        var(--chip);
+      min-height: 70px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    .sentiment i {
-      font-size: 2rem;
-    }
+    .sentiment i { font-size: 2rem; text-shadow: 0 6px 18px rgba(0,0,0,0.25); }
     .sentiment .positive { color: var(--ok); }
     .sentiment .negative { color: var(--danger); }
     .sentiment .neutral { color: var(--warn); }
     .monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .error {
-      color: var(--danger);
-      background: rgba(248,113,113,0.1);
-      border: 1px solid rgba(248,113,113,0.35);
-      padding: 10px 12px;
-      border-radius: 10px;
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(255,90,140,0.16), rgba(255,90,140,0.10));
+      border: 1px solid rgba(255,90,140,0.45);
+      padding: 12px 14px;
+      border-radius: 12px;
       display: none;
       white-space: pre-wrap;
       word-break: break-word;
+      box-shadow: 0 10px 22px rgba(255,90,140,0.12);
     }
     .footer {
-      margin-top: 14px;
+      margin-top: 16px;
       display: flex; justify-content: space-between; align-items: center; gap: 8px;
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       flex-wrap: wrap;
     }
     a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
     .pill {
-      border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; background: #0b1220;
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+        var(--chip);
+      color: var(--accent-2);
     }
   </style>
 </head>
@@ -218,7 +254,7 @@
           <div class="sentiment">
             <div id="sentimentIcon" aria-hidden="true"><i class="fa-regular fa-circle-question neutral"></i></div>
             <div>
-              <div id="sentimentLabel" style="font-weight:700;">—</div>
+              <div id="sentimentLabel" style="font-weight:800; letter-spacing:.2px;">—</div>
               <div id="sentimentScore" class="hint">Score: —</div>
             </div>
           </div>
