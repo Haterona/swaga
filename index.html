@@ -4,271 +4,302 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TSV Review Sentiment • Hugging Face</title>
+
+  <!-- Icons & Parser (per spec) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <!-- UX + Glassmorphism Styles -->
   <style>
-    :root {
-      --bg: #1a0f16;          /* very dark plum */
-      --panel: #1e1520;       /* deep berry */
-      --muted: #f5c6da;       /* soft rose */
-      --text: #ffe9f2;        /* near-white pink */
-      --accent: #ff73b3;      /* vibrant pink */
-      --accent-2: #ffc2dd;    /* pastel pink */
-      --danger: #ff5a8c;      /* hot pink/red */
-      --ok: #7be3c5;          /* mint for positive contrast */
-      --warn: #ffd166;        /* warm peach for neutral */
-      --border: #442539;      /* wine border */
-      --chip: #2a1926;        /* chip background */
-      --input: #140b12;       /* input background */
-      --dash: #5a2b49;        /* dashed border */
-      --glow: rgba(255, 115, 179, 0.35);
+    :root{
+      /* Color system with contrast in mind (AA+) */
+      --bg: #0f0a11;
+      --bg-accent: #1a0f18;
+      --surface: rgba(255, 255, 255, 0.06);
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-strong: rgba(255, 255, 255, 0.12);
+      --text: #fdf2f7;
+      --text-muted: #f5cfe0;
+      --brand: #ff66b3;
+      --brand-2: #ff9fd1;
+      --ok: #73e2b5;
+      --warn: #ffd166;
+      --danger: #ff5a8c;
+      --border: rgba(255,255,255,0.15);
+      --focus: #ffffff;
+
+      /* Sizes & radius */
+      --radius: 16px;
+      --radius-sm: 12px;
+      --space: 16px;
+      --shadow-1: 0 8px 30px rgba(255,102,179,.15);
+      --shadow-2: 0 16px 50px rgba(255,102,179,.18);
+      --blur: 14px;
     }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+      background:
+        radial-gradient(1200px 800px at 85% -10%, rgba(255,102,179,.25) 0%, transparent 55%) fixed,
+        radial-gradient(900px 600px at -10% 120%, rgba(255,159,209,.22) 0%, transparent 60%) fixed,
+        linear-gradient(180deg, #0b060c 0%, var(--bg) 100%) fixed;
       color: var(--text);
-      background:
-        radial-gradient(1200px 800px at 85% -10%, rgba(255,115,179,0.25) 0%, transparent 55%) fixed,
-        radial-gradient(900px 600px at -10% 120%, rgba(255,194,221,0.20) 0%, transparent 60%) fixed,
-        linear-gradient(180deg, #120a12 0%, var(--bg) 100%) fixed;
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      min-height:100svh;
     }
-    .app {
-      width: 100%;
-      max-width: 980px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+
+    /* Skip link for keyboard users */
+    .skip-link{
+      position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;
+    }
+    .skip-link:focus{
+      left:16px; top:16px; width:auto; height:auto; padding:10px 14px;
+      background:#000; color:#fff; border-radius:10px; z-index:1000;
+    }
+
+    .container{
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: clamp(16px, 3vw, 28px);
+      width:100%;
+    }
+
+    .app{
+      background: var(--panel);
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
       border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 22px;
-      box-shadow:
-        0 24px 80px rgba(255, 115, 179, 0.12),
-        inset 0 1px 0 rgba(255,255,255,0.06);
-      backdrop-filter: blur(8px);
+      border-radius: var(--radius);
+      padding: clamp(16px, 2.4vw, 22px);
+      box-shadow: var(--shadow-1);
     }
-    header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 18px;
+
+    header.app-header{
+      display:flex; align-items:center; gap:14px; margin-bottom:12px;
     }
-    header .logo {
-      width: 48px; height: 48px; border-radius: 14px;
-      background:
-        radial-gradient(60% 60% at 30% 30%, rgba(255,194,221,0.35), transparent),
-        linear-gradient(135deg, #2b1826, #1c0f19);
-      border: 1px solid var(--border);
-      display: grid; place-items: center;
-      color: var(--accent);
-      box-shadow: 0 6px 18px var(--glow);
+    .logo{
+      width:52px; height:52px; border-radius:14px;
+      display:grid; place-items:center;
+      color: var(--brand);
+      border:1px solid var(--border);
+      background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
+      box-shadow: var(--shadow-2);
     }
-    header h1 {
-      font-size: 1.35rem; margin: 0; letter-spacing: 0.2px;
-      background: linear-gradient(90deg, var(--text), var(--accent-2));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
+    .title{
+      margin:0;
+      font-size:clamp(18px, 2.2vw, 22px);
+      line-height:1.2;
+      background: linear-gradient(90deg, var(--text) 0%, var(--brand-2) 100%);
+      -webkit-background-clip: text; background-clip:text; color: transparent;
     }
-    header p { margin: 4px 0 0 0; color: var(--muted); font-size: 0.95rem; }
-    .grid {
-      display: grid;
+    .subtitle{margin:.25rem 0 0 0; color: var(--text-muted); font-size:.95rem}
+
+    main{
+      margin-top: 12px;
+      display:grid; gap:16px;
       grid-template-columns: 1fr;
-      gap: 16px;
     }
-    @media (min-width: 900px) {
-      .grid { grid-template-columns: 1.05fr 0.95fr; }
+    @media (min-width: 920px){
+      main{ grid-template-columns: 1.1fr .9fr; }
     }
-    .panel {
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
-        var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+
+    .panel{
+      background: var(--surface);
+      border:1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: clamp(12px, 2vw, 16px);
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
     }
-    .panel h2 {
-      margin: 0 0 12px 0;
-      font-size: 0.95rem;
-      color: var(--accent-2);
-      font-weight: 700;
-      letter-spacing: 0.25px;
-      text-transform: uppercase;
+    .panel h2{
+      margin:0 0 10px 0; font-size:.95rem; letter-spacing:.3px;
+      color: var(--brand-2); text-transform:uppercase;
     }
-    .field { display: grid; gap: 8px; margin-bottom: 12px; }
-    label { font-size: 0.92rem; color: var(--muted); }
-    input[type="password"], input[type="text"] {
-      width: 100%;
-      padding: 12px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--input);
+
+    .field{display:grid; gap:8px; margin-bottom:12px;}
+    label{font-size:.95rem; color: var(--text-muted);}
+    .hint{font-size:.875rem; color: var(--text-muted)}
+
+    input[type="password"], input[type="text"]{
+      width:100%; padding: 12px 14px;
+      border-radius: 12px; border:1px solid var(--border);
+      background: rgba(255,255,255,.05);
       color: var(--text);
-      outline: none;
-      transition: box-shadow .2s ease, border-color .2s ease;
+      outline:none;
+      transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
     }
-    input[type="password"]:focus, input[type="text"]:focus {
-      border-color: #7b2d59;
-      box-shadow: 0 0 0 4px rgba(255, 115, 179, 0.18);
+    input::placeholder{color: #eec8da}
+    input:focus{
+      border-color: var(--focus);
+      box-shadow: 0 0 0 4px rgba(255,255,255,.16);
+      background: rgba(255,255,255,.08);
     }
-    .hint { font-size: 0.86rem; color: var(--muted); }
-    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    button {
-      appearance: none;
-      border: 1px solid var(--border);
-      background:
-        linear-gradient(180deg, #2a1825, #170c14);
+
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+
+    button{
+      appearance:none; cursor:pointer;
+      border:1px solid var(--border);
+      border-radius:12px;
+      font-weight:700;
       color: var(--text);
-      padding: 12px 14px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 700;
-      transition: transform 0.05s ease, box-shadow 0.25s ease, border-color 0.2s ease, background 0.2s ease;
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+      padding: 12px 16px;
+      transition: transform .06s ease, box-shadow .25s ease, border-color .2s ease, background .2s ease;
     }
-    button:hover {
-      border-color: #7b2d59;
-      box-shadow: 0 10px 26px var(--glow);
-      background: linear-gradient(180deg, #341a2b, #190d16);
+    button:hover{ border-color: #fff; box-shadow: var(--shadow-1); }
+    button:active{ transform: translateY(1px); }
+    button:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
+    .ghost{ background: transparent; color: var(--brand-2); }
+    .primary{
+      background: linear-gradient(180deg, rgba(255,102,179,.22), rgba(255,102,179,.08));
+      border-color: rgba(255,255,255,.28);
     }
-    button:active { transform: translateY(1px); }
-    .ghost {
-      background: transparent;
-      color: var(--accent-2);
-      border-color: #6c2b52;
+    .primary:hover{ box-shadow: var(--shadow-2); }
+
+    .status{
+      display:flex; align-items:center; gap:8px;
+      color: var(--text-muted); font-size:.95rem;
+      padding: 6px 10px; border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--border);
     }
-    .ghost:hover { background: rgba(255,115,179,0.06); }
-    .status {
-      display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.95rem;
-      padding: 6px 10px; border-radius: 999px; background: var(--chip); border: 1px solid var(--border);
+    .dot{ width:10px; height:10px; border-radius:50%; background: var(--warn); box-shadow:0 0 10px rgba(255,209,102,.45) }
+    .status.ready .dot{ background: var(--ok); box-shadow:0 0 12px rgba(115,226,181,.5) }
+    .status.error .dot{ background: var(--danger); box-shadow:0 0 12px rgba(255,90,140,.5) }
+
+    .pill{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      border-radius:999px; padding:7px 12px; color: var(--brand-2);
     }
-    .status .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--warn);
-      box-shadow: 0 0 10px rgba(255,209,102,0.45);
-    }
-    .status.ready .dot { background: var(--ok); box-shadow: 0 0 12px rgba(123,227,197,0.5); }
-    .status.error .dot { background: var(--danger); box-shadow: 0 0 12px rgba(255,90,140,0.5); }
-    .review {
-      background: var(--input);
-      border: 1px dashed var(--dash);
+
+    .review{
+      background: rgba(255,255,255,.05);
+      border: 1px dashed rgba(255,255,255,.25);
       border-radius: 14px;
       padding: 14px;
-      min-height: 110px;
-      line-height: 1.55;
-      font-size: 1rem;
-      color: var(--text);
-      white-space: pre-wrap;
-      word-break: break-word;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      min-height: 120px; line-height:1.55; font-size:1rem; color: var(--text);
+      white-space: pre-wrap; word-break: break-word;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
     }
-    .sentiment {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 12px;
-      align-items: center;
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
+
+    .sentiment{
+      display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center;
+      padding:12px; border-radius:14px;
+      border:1px solid var(--border);
       background:
-        radial-gradient(120px 80px at 0% 0%, rgba(255,115,179,0.08), transparent),
-        var(--chip);
-      min-height: 70px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        radial-gradient(120px 80px at 0% 0%, rgba(255,102,179,.10), transparent),
+        rgba(255,255,255,.05);
+      min-height:72px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
     }
-    .sentiment i { font-size: 2rem; text-shadow: 0 6px 18px rgba(0,0,0,0.25); }
-    .sentiment .positive { color: var(--ok); }
-    .sentiment .negative { color: var(--danger); }
-    .sentiment .neutral { color: var(--warn); }
-    .monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .error {
+    .sentiment i{ font-size:2rem; text-shadow:0 6px 18px rgba(0,0,0,.28) }
+    .positive{ color: var(--ok) }
+    .negative{ color: var(--danger) }
+    .neutral{ color: var(--warn) }
+
+    .error{
       color: var(--text);
-      background: linear-gradient(180deg, rgba(255,90,140,0.16), rgba(255,90,140,0.10));
-      border: 1px solid rgba(255,90,140,0.45);
-      padding: 12px 14px;
-      border-radius: 12px;
-      display: none;
-      white-space: pre-wrap;
-      word-break: break-word;
-      box-shadow: 0 10px 22px rgba(255,90,140,0.12);
+      background: linear-gradient(180deg, rgba(255,90,140,.16), rgba(255,90,140,.10));
+      border:1px solid rgba(255,90,140,.45);
+      padding: 12px 14px; border-radius:12px; display:none;
+      white-space: pre-wrap; word-break: break-word;
+      box-shadow: 0 10px 22px rgba(255,90,140,.12);
     }
-    .footer {
-      margin-top: 16px;
-      display: flex; justify-content: space-between; align-items: center; gap: 8px;
-      color: var(--muted);
-      font-size: 0.9rem;
-      flex-wrap: wrap;
+
+    footer{
+      color: var(--text-muted);
+      font-size:.92rem;
+      margin-top: 14px;
+      display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap;
     }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; text-underline-offset: 3px; }
-    .pill {
-      border: 1px solid var(--border);
-      padding: 7px 12px;
-      border-radius: 999px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
-        var(--chip);
-      color: var(--accent-2);
+    a{ color: var(--brand-2); text-decoration:none }
+    a:hover{ text-decoration:underline; text-underline-offset:3px }
+
+    /* Motion-reduction for accessibility */
+    @media (prefers-reduced-motion: reduce){
+      *{ transition: none !important; animation: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <div class="logo"><i class="fa-solid fa-robot"></i></div>
-      <div>
-        <h1>Random Review Sentiment (TSV → Hugging Face)</h1>
-        <p>Parses <span class="monospace">reviews_test.tsv</span> with Papa Parse and analyzes via <span class="monospace">siebert/sentiment-roberta-large-english</span>.</p>
-      </div>
-    </header>
+  <a class="skip-link" href="#main">Skip to content</a>
 
-    <div class="grid">
-      <section class="panel">
-        <h2>Data & Token</h2>
-        <div class="field">
-          <label for="tokenInput">Hugging Face API Token (optional)</label>
-          <input id="tokenInput" type="password" autocomplete="off" placeholder="hf_xxx — optional for free, helps with rate limits" />
-          <div class="hint">Token is used only in your browser to set the <span class="monospace">Authorization</span> header.</div>
+  <div class="container">
+    <section class="app" aria-labelledby="appTitle">
+      <header class="app-header">
+        <div class="logo" aria-hidden="true"><i class="fa-solid fa-robot"></i></div>
+        <div>
+          <h1 id="appTitle" class="title">Random Review Sentiment (TSV → Hugging Face)</h1>
+          <p class="subtitle">
+            Parses <span style="font-family:ui-monospace, Menlo, Consolas, monospace">reviews_test.tsv</span> with Papa Parse and analyzes with
+            <span style="font-family:ui-monospace, Menlo, Consolas, monospace">siebert/sentiment-roberta-large-english</span>.
+          </p>
         </div>
+      </header>
 
-        <div class="row" style="margin-top:8px; gap:12px;">
-          <button id="reloadBtn" class="ghost"><i class="fa-solid fa-rotate"></i> Reload TSV</button>
-          <div id="loadStatus" class="status"><span class="dot"></span><span>Loading TSV…</span></div>
-        </div>
-      </section>
+      <main id="main">
+        <!-- Data & Token -->
+        <section class="panel" aria-labelledby="dataToken">
+          <h2 id="dataToken">Data & Token</h2>
+          <div class="field">
+            <label for="tokenInput">Hugging Face API Token (optional)</label>
+            <input id="tokenInput" type="password" autocomplete="off"
+                   placeholder="hf_xxx — optional for free, helps with rate limits"
+                   aria-describedby="tokenHint" inputmode="text" />
+            <div id="tokenHint" class="hint">Token is used only in your browser to set the <span style="font-family:ui-monospace, Menlo, Consolas, monospace">Authorization</span> header.</div>
+          </div>
 
-      <section class="panel">
-        <h2>Analyze</h2>
-        <div class="row" style="gap:12px; margin-bottom:10px;">
-          <button id="analyzeBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Random Review</button>
-          <span class="pill" id="countBadge">0 reviews loaded</span>
-        </div>
-        <div id="errorBox" class="error"></div>
-        <div class="field">
-          <label>Selected Review</label>
-          <div id="reviewDisplay" class="review" aria-live="polite"></div>
-        </div>
-        <div class="field">
-          <label>Sentiment</label>
-          <div class="sentiment">
-            <div id="sentimentIcon" aria-hidden="true"><i class="fa-regular fa-circle-question neutral"></i></div>
-            <div>
-              <div id="sentimentLabel" style="font-weight:800; letter-spacing:.2px;">—</div>
-              <div id="sentimentScore" class="hint">Score: —</div>
+          <div class="row" style="margin-top:8px; gap:12px;">
+            <button id="reloadBtn" class="ghost" type="button" aria-controls="reviewDisplay sentimentLabel sentimentScore"><i class="fa-solid fa-rotate"></i> Reload TSV</button>
+            <div id="loadStatus" class="status" role="status" aria-live="polite"><span class="dot" aria-hidden="true"></span><span>Loading TSV…</span></div>
+          </div>
+        </section>
+
+        <!-- Analyze -->
+        <section class="panel" aria-labelledby="analyze">
+          <h2 id="analyze">Analyze</h2>
+          <div class="row" style="gap:12px; margin-bottom:10px;">
+            <button id="analyzeBtn" class="primary" type="button"
+                    aria-controls="reviewDisplay sentimentLabel sentimentScore sentimentIcon"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Random Review</button>
+            <span class="pill" id="countBadge" aria-live="polite">0 reviews loaded</span>
+          </div>
+
+          <div id="errorBox" class="error" role="alert"></div>
+
+          <div class="field">
+            <label for="reviewDisplay">Selected Review</label>
+            <div id="reviewDisplay" class="review" role="region" aria-live="polite" tabindex="0"></div>
+          </div>
+
+          <div class="field">
+            <label>Sentiment</label>
+            <div class="sentiment" role="group" aria-live="polite" aria-label="Sentiment result">
+              <div id="sentimentIcon" aria-hidden="true"><i class="fa-regular fa-circle-question neutral"></i></div>
+              <div>
+                <div id="sentimentLabel" style="font-weight:800; letter-spacing:.2px;">—</div>
+                <div id="sentimentScore" class="hint">Score: —</div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </main>
 
-    <div class="footer">
-      <div>Icons: Font Awesome • Parser: Papa Parse • API: Hugging Face Inference</div>
-      <div>
-        <a href="https://huggingface.co/siebert/sentiment-roberta-large-english" target="_blank" rel="noopener">Model Card</a> ·
-        <a href="https://api-inference.huggingface.co/docs/python/html/index.html" target="_blank" rel="noopener">Inference API Docs</a>
-      </div>
-    </div>
+      <footer>
+        <div>Icons: Font Awesome • Parser: Papa Parse • API: Hugging Face Inference</div>
+        <div>
+          <a href="https://huggingface.co/siebert/sentiment-roberta-large-english" target="_blank" rel="noopener">Model Card</a> ·
+          <a href="https://api-inference.huggingface.co/docs/python/html/index.html" target="_blank" rel="noopener">Inference API Docs</a>
+        </div>
+      </footer>
+    </section>
   </div>
 
   <script src="app.js" defer></script>
